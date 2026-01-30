@@ -32,6 +32,7 @@ import {
   CopyOutlined,
   ExclamationCircleOutlined,
   FilterOutlined,
+  PauseCircleOutlined,
   ProjectOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -49,6 +50,7 @@ interface ProjectAnalysisRun {
   succeeded: boolean;
   init_output: string;
   plan_output: string;
+  skipped_due_to_pr: boolean;
 }
 
 interface AnalysisRun {
@@ -56,13 +58,14 @@ interface AnalysisRun {
   repository_id: number;
   total_projects: number;
   total_projects_drifted: number;
+  total_projects_skipped: number;
   duration_millis: number;
   created_at: string;
   updated_at: string;
   projects: ProjectAnalysisRun[];
 }
 
-type StatusFilter = 'all' | 'drifted' | 'errored' | 'ok';
+type StatusFilter = 'all' | 'drifted' | 'errored' | 'skipped' | 'ok';
 
 const RunResultPage: React.FC = () => {
   const [searchText, setSearchText] = React.useState('');
@@ -88,19 +91,22 @@ const RunResultPage: React.FC = () => {
 
   const run = runQuery.data;
 
-  // Set default filter based on priority: drifted > errored > all (on initial load)
+  // Set default filter based on priority: drifted > errored > skipped > all (on initial load)
   React.useEffect(() => {
     if (run && !hasInitializedFilter.current) {
       hasInitializedFilter.current = true;
-      const driftedCount = run.projects?.filter(p => p.drifted && p.succeeded).length ?? 0;
+      const driftedCount = run.projects?.filter(p => p.drifted && !p.skipped_due_to_pr && p.succeeded).length ?? 0;
       const erroredCount = run.projects?.filter(p => !p.succeeded).length ?? 0;
+      const skippedCount = run.projects?.filter(p => p.skipped_due_to_pr && p.succeeded).length ?? 0;
 
       if (driftedCount > 0) {
         setStatusFilter('drifted');
       } else if (erroredCount > 0) {
         setStatusFilter('errored');
+      } else if (skippedCount > 0) {
+        setStatusFilter('skipped');
       }
-      // If no drifted or errored projects, keep the default 'all' filter
+      // If no drifted, errored, or skipped projects, keep the default 'all' filter
     }
   }, [run]);
   const allProjects = run?.projects ?? [];
@@ -115,11 +121,13 @@ const RunResultPage: React.FC = () => {
       // Status filter
       let matchesStatus = true;
       if (statusFilter === 'drifted') {
-        matchesStatus = project.drifted && project.succeeded;
+        matchesStatus = project.drifted && !project.skipped_due_to_pr && project.succeeded;
       } else if (statusFilter === 'errored') {
         matchesStatus = !project.succeeded;
+      } else if (statusFilter === 'skipped') {
+        matchesStatus = project.skipped_due_to_pr && project.succeeded;
       } else if (statusFilter === 'ok') {
-        matchesStatus = !project.drifted && project.succeeded;
+        matchesStatus = !project.drifted && !project.skipped_due_to_pr && project.succeeded;
       }
 
       return matchesSearch && matchesStatus;
@@ -128,10 +136,11 @@ const RunResultPage: React.FC = () => {
 
   // Calculate counts for filter badges
   const counts = React.useMemo(() => {
-    const drifted = allProjects.filter(p => p.drifted && p.succeeded).length;
+    const drifted = allProjects.filter(p => p.drifted && !p.skipped_due_to_pr && p.succeeded).length;
     const errored = allProjects.filter(p => !p.succeeded).length;
-    const ok = allProjects.filter(p => !p.drifted && p.succeeded).length;
-    return {drifted, errored, ok, all: allProjects.length};
+    const skipped = allProjects.filter(p => p.skipped_due_to_pr && p.succeeded).length;
+    const ok = allProjects.filter(p => !p.drifted && !p.skipped_due_to_pr && p.succeeded).length;
+    return {drifted, errored, skipped, ok, all: allProjects.length};
   }, [allProjects]);
 
   const copyToClipboard = async (text: string) => {
@@ -156,6 +165,9 @@ const RunResultPage: React.FC = () => {
   const getProjectStatus = (project: ProjectAnalysisRun) => {
     if (!project.succeeded) {
       return {tag: <Tag icon={<ExclamationCircleOutlined/>} color={colors.error}>Error</Tag>, label: 'Error'};
+    }
+    if (project.skipped_due_to_pr) {
+      return {tag: <Tag icon={<PauseCircleOutlined/>} color="blue">Skipped (PR)</Tag>, label: 'Skipped'};
     }
     if (project.drifted) {
       return {tag: <Tag icon={<WarningOutlined/>} color={colors.warning}>Drifted</Tag>, label: 'Drifted'};
@@ -184,8 +196,9 @@ const RunResultPage: React.FC = () => {
       sorter: (a: ProjectAnalysisRun, b: ProjectAnalysisRun) => {
         const getStatusOrder = (p: ProjectAnalysisRun) => {
           if (!p.succeeded) return 0; // Error first
+          if (p.skipped_due_to_pr) return 2; // Skipped third
           if (p.drifted) return 1; // Drifted second
-          return 2; // OK last
+          return 3; // OK last
         };
         return getStatusOrder(a) - getStatusOrder(b);
       },
@@ -309,6 +322,7 @@ const RunResultPage: React.FC = () => {
                 {label: `All (${counts.all})`, value: 'all'},
                 {label: `Drifted (${counts.drifted})`, value: 'drifted'},
                 {label: `Errored (${counts.errored})`, value: 'errored'},
+                {label: `Skipped (${counts.skipped})`, value: 'skipped'},
                 {label: `OK (${counts.ok})`, value: 'ok'},
               ]}
             />

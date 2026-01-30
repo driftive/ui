@@ -5,6 +5,7 @@ import {
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   HistoryOutlined,
+  PauseCircleOutlined,
   ReloadOutlined,
   RocketOutlined,
   WarningOutlined
@@ -30,6 +31,7 @@ interface RepoAnalysisResult {
   total_projects: number;
   total_projects_drifted: number;
   total_projects_errored: number;
+  total_projects_skipped: number;
   duration_millis: number;
   created_at: string;
 }
@@ -96,8 +98,9 @@ export const RepoResultsTab: React.FC<RepoResultsTabProps> = ({organization, rep
       render: (_, item) => {
         const hasDrift = item.total_projects_drifted > 0;
         const hasErrors = item.total_projects_errored > 0;
+        const hasSkipped = item.total_projects_skipped > 0;
 
-        if (!hasDrift && !hasErrors) {
+        if (!hasDrift && !hasErrors && !hasSkipped) {
           return <Tag icon={<CheckCircleOutlined />} color={colors.success}>OK</Tag>;
         }
 
@@ -111,6 +114,11 @@ export const RepoResultsTab: React.FC<RepoResultsTabProps> = ({organization, rep
             {hasDrift && (
               <Tag icon={<WarningOutlined />} color={colors.warning}>
                 {item.total_projects_drifted} drifted
+              </Tag>
+            )}
+            {hasSkipped && (
+              <Tag icon={<PauseCircleOutlined />} color="blue">
+                {item.total_projects_skipped} skipped
               </Tag>
             )}
           </Space>
