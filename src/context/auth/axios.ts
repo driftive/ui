@@ -24,7 +24,7 @@ const useAxios = () => {
     (error) => {
       if (error.response?.status === 401) {
         localStorage.removeItem('authState');
-        window.location.href = '/login';
+        window.location.assign('/login');
       }
       return Promise.reject(error);
     }

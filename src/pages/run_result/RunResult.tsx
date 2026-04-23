@@ -109,7 +109,7 @@ const RunResultPage: React.FC = () => {
       // If no drifted, errored, or skipped projects, keep the default 'all' filter
     }
   }, [run]);
-  const allProjects = run?.projects ?? [];
+  const allProjects = React.useMemo(() => run?.projects ?? [], [run?.projects]);
 
   // Filter projects based on search text and status filter
   const filteredProjects = React.useMemo(() => {
