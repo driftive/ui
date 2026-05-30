@@ -7,10 +7,23 @@ import {BarChartOutlined, GithubOutlined, HomeOutlined, LineChartOutlined, Reloa
 import {useQuery} from "@tanstack/react-query";
 import {isOk} from "../../utils/axios.ts";
 import useAxios from "../../context/auth/axios.ts";
-import {RepoConfigTab} from "./tabs/RepoConfigTab.tsx";
-import {RepoResultsTab} from "./tabs/RepoResultsTab.tsx";
-import {RepoTrendsTab} from "./tabs/RepoTrendsTab.tsx";
 import {colors} from "../../theme/theme.ts";
+
+const RepoResultsTab = React.lazy(() =>
+  import("./tabs/RepoResultsTab.tsx").then(m => ({default: m.RepoResultsTab}))
+);
+const RepoTrendsTab = React.lazy(() =>
+  import("./tabs/RepoTrendsTab.tsx").then(m => ({default: m.RepoTrendsTab}))
+);
+const RepoConfigTab = React.lazy(() =>
+  import("./tabs/RepoConfigTab.tsx").then(m => ({default: m.RepoConfigTab}))
+);
+
+const TabFallback = () => (
+  <div style={{display: 'flex', justifyContent: 'center', padding: '48px 0'}}>
+    <Spin />
+  </div>
+);
 
 enum RepoPageTabs {
   RESULTS = 'results',
@@ -166,17 +179,29 @@ export const RepositoryPage: React.FC = () => {
               {
                 key: RepoPageTabs.RESULTS,
                 label: <Space><BarChartOutlined />Results</Space>,
-                children: <RepoResultsTab repository={repoQuery.data} organization={orgQuery.data}/>
+                children: (
+                  <React.Suspense fallback={<TabFallback />}>
+                    <RepoResultsTab repository={repoQuery.data} organization={orgQuery.data}/>
+                  </React.Suspense>
+                )
               },
               {
                 key: RepoPageTabs.TRENDS,
                 label: <Space><LineChartOutlined />Trends</Space>,
-                children: <RepoTrendsTab repository={repoQuery.data} organization={orgQuery.data}/>
+                children: (
+                  <React.Suspense fallback={<TabFallback />}>
+                    <RepoTrendsTab repository={repoQuery.data} organization={orgQuery.data}/>
+                  </React.Suspense>
+                )
               },
               {
                 key: RepoPageTabs.CONFIGS,
                 label: <Space><SettingOutlined />Settings</Space>,
-                children: <RepoConfigTab repository={repoQuery.data} organization={orgQuery.data}/>
+                children: (
+                  <React.Suspense fallback={<TabFallback />}>
+                    <RepoConfigTab repository={repoQuery.data} organization={orgQuery.data}/>
+                  </React.Suspense>
+                )
               }
             ]}
           />
