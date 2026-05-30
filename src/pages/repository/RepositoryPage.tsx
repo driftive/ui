@@ -37,8 +37,7 @@ export const RepositoryPage: React.FC = () => {
   const {org: orgName, repo: repoName} = useParams();
   const [searchParams] = useSearchParams();
 
-  const queryTab = searchParams.get('tab') || RepoPageTabs.RESULTS;
-  const [currentTab, setCurrentTab] = React.useState(queryTab);
+  const currentTab = searchParams.get('tab') || RepoPageTabs.RESULTS;
   const navigate = useNavigate();
 
   const updateUrlTab = (tab: string) => {
@@ -46,11 +45,6 @@ export const RepositoryPage: React.FC = () => {
       replace: true,
     });
   };
-
-  // Updates currentTab if query param changes
-  React.useEffect(() => {
-    setCurrentTab(queryTab);
-  }, [queryTab]);
 
   const orgQuery = useQuery({
     queryKey: ["getOrgByName", orgName],
@@ -171,7 +165,6 @@ export const RepositoryPage: React.FC = () => {
             activeKey={currentTab}
             onChange={(key: string) => {
               if (key === RepoPageTabs.CONFIGS || key === RepoPageTabs.RESULTS || key === RepoPageTabs.TRENDS) {
-                setCurrentTab(key);
                 updateUrlTab(key);
               }
             }}

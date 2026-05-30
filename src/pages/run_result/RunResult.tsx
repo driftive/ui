@@ -69,10 +69,9 @@ type StatusFilter = 'all' | 'drifted' | 'errored' | 'skipped' | 'ok';
 
 const RunResultPage: React.FC = () => {
   const [searchText, setSearchText] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const [userSetFilter, setUserSetFilter] = React.useState<StatusFilter | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [selectedProject, setSelectedProject] = React.useState<ProjectAnalysisRun | null>(null);
-  const hasInitializedFilter = React.useRef(false);
 
   const axios = useAxios();
   const {org: orgName, repo: repoName, run: runUuid} = useParams();
@@ -91,24 +90,19 @@ const RunResultPage: React.FC = () => {
 
   const run = runQuery.data;
 
-  // Set default filter based on priority: drifted > errored > skipped > all (on initial load)
-  React.useEffect(() => {
-    if (run && !hasInitializedFilter.current) {
-      hasInitializedFilter.current = true;
-      const driftedCount = run.projects?.filter(p => p.drifted && !p.skipped_due_to_pr && p.succeeded).length ?? 0;
-      const erroredCount = run.projects?.filter(p => !p.succeeded).length ?? 0;
-      const skippedCount = run.projects?.filter(p => p.skipped_due_to_pr && p.succeeded).length ?? 0;
-
-      if (driftedCount > 0) {
-        setStatusFilter('drifted');
-      } else if (erroredCount > 0) {
-        setStatusFilter('errored');
-      } else if (skippedCount > 0) {
-        setStatusFilter('skipped');
-      }
-      // If no drifted, errored, or skipped projects, keep the default 'all' filter
-    }
+  // Default filter priority: drifted > errored > skipped > all. The user's explicit
+  // pick (userSetFilter) always wins so the auto-pick can't clobber it on refetch.
+  const defaultFilter = React.useMemo<StatusFilter>(() => {
+    if (!run) return 'all';
+    const driftedCount = run.projects?.filter(p => p.drifted && !p.skipped_due_to_pr && p.succeeded).length ?? 0;
+    if (driftedCount > 0) return 'drifted';
+    const erroredCount = run.projects?.filter(p => !p.succeeded).length ?? 0;
+    if (erroredCount > 0) return 'errored';
+    const skippedCount = run.projects?.filter(p => p.skipped_due_to_pr && p.succeeded).length ?? 0;
+    if (skippedCount > 0) return 'skipped';
+    return 'all';
   }, [run]);
+  const statusFilter: StatusFilter = userSetFilter ?? defaultFilter;
   const allProjects = React.useMemo(() => run?.projects ?? [], [run?.projects]);
 
   // Filter projects based on search text and status filter
@@ -317,7 +311,7 @@ const RunResultPage: React.FC = () => {
             />
             <Segmented
               value={statusFilter}
-              onChange={(value) => setStatusFilter(value as StatusFilter)}
+              onChange={(value) => setUserSetFilter(value as StatusFilter)}
               options={[
                 {label: `All (${counts.all})`, value: 'all'},
                 {label: `Drifted (${counts.drifted})`, value: 'drifted'},
@@ -395,7 +389,7 @@ const RunResultPage: React.FC = () => {
                     </Space>
                   }
                 >
-                  <Button onClick={() => { setSearchText(''); setStatusFilter('all'); }}>
+                  <Button onClick={() => { setSearchText(''); setUserSetFilter('all'); }}>
                     Clear Filters
                   </Button>
                 </Empty>
