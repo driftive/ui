@@ -2,6 +2,13 @@ import axios from 'axios';
 import {API_URL} from "../../configs.ts";
 import {useAuthState} from "./hook.ts";
 
+const rememberCurrentPathForPostLoginRedirect = () => {
+  const currentPath = window.location.pathname + window.location.search + window.location.hash;
+  if (currentPath && !currentPath.startsWith('/login')) {
+    sessionStorage.setItem('redirectAfterLogin', currentPath);
+  }
+};
+
 const useAxios = () => {
   const {token} = useAuthState();
 
@@ -24,6 +31,7 @@ const useAxios = () => {
     (error) => {
       if (error.response?.status === 401) {
         localStorage.removeItem('authState');
+        rememberCurrentPathForPostLoginRedirect();
         window.location.assign('/login');
       }
       return Promise.reject(error);
