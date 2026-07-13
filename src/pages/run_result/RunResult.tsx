@@ -69,12 +69,25 @@ interface AnalysisRun {
 
 type StatusFilter = 'all' | 'drifted' | 'errored' | 'skipped' | 'ok';
 
+const diffLineStyle = (line: string): React.CSSProperties | undefined => {
+  const t = line.trimStart();
+  if (t.startsWith('+/-') || t.startsWith('-/+')) return {display: 'block', backgroundColor: 'rgba(245, 158, 11, 0.15)'};
+  switch (t[0]) {
+    case '+': return {display: 'block', backgroundColor: 'rgba(16, 185, 129, 0.15)'};
+    case '-': return {display: 'block', backgroundColor: 'rgba(239, 68, 68, 0.18)'};
+    case '~':
+    case '!': return {display: 'block', backgroundColor: 'rgba(245, 158, 11, 0.15)'};
+    default: return undefined;
+  }
+};
+
 const RunResultPage: React.FC = () => {
   const [searchText, setSearchText] = React.useState('');
   const [userSetFilter, setUserSetFilter] = React.useState<StatusFilter | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [selectedProject, setSelectedProject] = React.useState<ProjectAnalysisRun | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const [wrap, setWrap] = React.useState(false);
 
   const axios = useAxios();
   const {provider, org: orgName, repo: repoName, run: runUuid} = useParams();
@@ -235,6 +248,7 @@ const RunResultPage: React.FC = () => {
 
   const shortUuid = runUuid?.slice(0, 8) ?? '';
   const selectedOutput = selectedProject?.plan_output || selectedProject?.init_output || 'No output available';
+  const outputLines = selectedOutput.split('\n');
 
   return (
     <PageContainer>
@@ -472,6 +486,14 @@ const RunResultPage: React.FC = () => {
           extra={
             <Space>
               <Button
+                type={wrap ? 'primary' : 'default'}
+                onClick={() => setWrap((w) => !w)}
+                aria-pressed={wrap}
+                aria-label="Toggle line wrapping"
+              >
+                Wrap
+              </Button>
+              <Button
                 icon={<DownloadOutlined aria-hidden="true" />}
                 onClick={downloadOutput}
                 aria-label="Download output as file"
@@ -493,6 +515,12 @@ const RunResultPage: React.FC = () => {
               <SyntaxHighlighter
                 language="hcl"
                 style={dracula}
+                wrapLines
+                wrapLongLines={wrap}
+                lineProps={(n) => {
+                  const style = diffLineStyle(outputLines[n - 1] ?? '');
+                  return style ? {style} : {};
+                }}
                 customStyle={{margin: 0, borderRadius: '8px', minHeight: '100%'}}
               >
                 {selectedOutput}
