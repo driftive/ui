@@ -236,8 +236,8 @@ const RunResultPage: React.FC = () => {
 
         {runQuery.isLoading ? (
           <Row gutter={[16, 16]} style={{marginBottom: 24}}>
-            {[1, 2, 3, 4].map((i) => (
-              <Col xs={24} sm={12} md={6} key={i}>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Col xs={24} sm={12} md={8} lg={4} key={i}>
                 <Card size="small" style={{borderRadius: 8}}>
                   <Skeleton.Input active style={{width: '100%', height: 50}} />
                 </Card>
@@ -246,7 +246,7 @@ const RunResultPage: React.FC = () => {
           </Row>
         ) : run && (
           <Row gutter={[16, 16]} style={{marginBottom: 24}}>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} md={8} lg={4}>
               <Card size="small" style={{borderRadius: 8, height: '100%'}}>
                 <Statistic
                   title={<span style={{fontSize: 12, color: colors.textSecondary}}>Total Projects</span>}
@@ -255,7 +255,7 @@ const RunResultPage: React.FC = () => {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} md={8} lg={4}>
               <Card
                 size="small"
                 style={{
@@ -273,7 +273,34 @@ const RunResultPage: React.FC = () => {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} md={8} lg={4}>
+              <Card
+                size="small"
+                style={{
+                  borderRadius: 8,
+                  height: '100%',
+                  borderColor: counts.errored > 0 ? colors.error : colors.border,
+                  backgroundColor: counts.errored > 0 ? colors.errorBg : colors.cardBg,
+                }}
+              >
+                <Statistic
+                  title={<span style={{fontSize: 12, color: colors.textSecondary}}>Errored</span>}
+                  value={counts.errored}
+                  valueStyle={{color: counts.errored > 0 ? colors.error : colors.text}}
+                  prefix={<ExclamationCircleOutlined style={{color: counts.errored > 0 ? colors.error : colors.textSecondary}} />}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={4}>
+              <Card size="small" style={{borderRadius: 8, height: '100%'}}>
+                <Statistic
+                  title={<span style={{fontSize: 12, color: colors.textSecondary}}>Skipped</span>}
+                  value={counts.skipped}
+                  prefix={<PauseCircleOutlined style={{color: colors.primary}} />}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={4}>
               <Card size="small" style={{borderRadius: 8, height: '100%'}}>
                 <Statistic
                   title={<span style={{fontSize: 12, color: colors.textSecondary}}>Duration</span>}
@@ -283,7 +310,7 @@ const RunResultPage: React.FC = () => {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} md={6}>
+            <Col xs={24} sm={12} md={8} lg={4}>
               <Tooltip title={dayjs(run.created_at).format('lll')}>
                 <Card size="small" style={{borderRadius: 8, height: '100%'}}>
                   <Statistic
