@@ -28,8 +28,10 @@ import {isOk} from "../../utils/axios.ts";
 import {PageContainer} from "../../components/PageWrapper/PageWrapper.tsx";
 import {
   CheckCircleOutlined,
+  CheckOutlined,
   ClockCircleOutlined,
   CopyOutlined,
+  DownloadOutlined,
   ExclamationCircleOutlined,
   FilterOutlined,
   PauseCircleOutlined,
@@ -72,6 +74,7 @@ const RunResultPage: React.FC = () => {
   const [userSetFilter, setUserSetFilter] = React.useState<StatusFilter | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [selectedProject, setSelectedProject] = React.useState<ProjectAnalysisRun | null>(null);
+  const [copied, setCopied] = React.useState(false);
 
   const axios = useAxios();
   const {provider, org: orgName, repo: repoName, run: runUuid} = useParams();
@@ -141,9 +144,29 @@ const RunResultPage: React.FC = () => {
     try {
       await navigator.clipboard.writeText(text);
       message.success('Output copied to clipboard');
+      return true;
     } catch {
       message.error('Failed to copy output');
+      return false;
     }
+  };
+
+  const handleCopyOutput = async () => {
+    if (await copyToClipboard(selectedOutput)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
+  const downloadOutput = () => {
+    if (!selectedProject) return;
+    const blob = new Blob([selectedOutput], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedProject.dir.replace(/\//g, '-')}-plan.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const openProjectDrawer = (project: ProjectAnalysisRun) => {
@@ -436,7 +459,7 @@ const RunResultPage: React.FC = () => {
                   {getProjectStatus(selectedProject).tag}
                   <Tag>{selectedProject.type}</Tag>
                 </Space>
-                <Typography.Text code style={{fontSize: '12px', wordBreak: 'break-all'}}>
+                <Typography.Text code copyable={{text: selectedProject.dir}} style={{fontSize: '12px', wordBreak: 'break-all'}}>
                   {selectedProject.dir}
                 </Typography.Text>
               </Space>
@@ -447,13 +470,22 @@ const RunResultPage: React.FC = () => {
           onClose={closeDrawer}
           open={drawerOpen}
           extra={
-            <Button
-              icon={<CopyOutlined aria-hidden="true" />}
-              onClick={() => copyToClipboard(selectedOutput)}
-              aria-label="Copy output to clipboard"
-            >
-              Copy
-            </Button>
+            <Space>
+              <Button
+                icon={<DownloadOutlined aria-hidden="true" />}
+                onClick={downloadOutput}
+                aria-label="Download output as file"
+              >
+                Download
+              </Button>
+              <Button
+                icon={copied ? <CheckOutlined aria-hidden="true" /> : <CopyOutlined aria-hidden="true" />}
+                onClick={handleCopyOutput}
+                aria-label="Copy output to clipboard"
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </Space>
           }
         >
           {selectedProject && (
