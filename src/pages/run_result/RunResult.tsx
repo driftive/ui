@@ -53,6 +53,9 @@ interface ProjectAnalysisRun {
   init_output: string;
   plan_output: string;
   skipped_due_to_pr: boolean;
+  resources_added?: number | null;
+  resources_changed?: number | null;
+  resources_destroyed?: number | null;
 }
 
 interface AnalysisRun {
@@ -79,6 +82,21 @@ const diffLineStyle = (line: string): React.CSSProperties | undefined => {
     case '!': return {display: 'block', backgroundColor: 'rgba(245, 158, 11, 0.15)'};
     default: return undefined;
   }
+};
+
+const changeTotal = (p: ProjectAnalysisRun): number =>
+  (p.resources_added ?? 0) + (p.resources_changed ?? 0) + (p.resources_destroyed ?? 0);
+
+const renderChangeBadges = (p: ProjectAnalysisRun): React.ReactNode => {
+  if (!p.succeeded) return null;
+  const {resources_added: added, resources_changed: changed, resources_destroyed: destroyed} = p;
+  if (added == null && changed == null && destroyed == null) return null;
+  const badges: React.ReactNode[] = [];
+  if (added) badges.push(<Tag key="a" color={colors.success} style={{margin: 0}}>+{added}</Tag>);
+  if (changed) badges.push(<Tag key="c" color={colors.warning} style={{margin: 0}}>~{changed}</Tag>);
+  if (destroyed) badges.push(<Tag key="d" color={colors.error} style={{margin: 0}}>-{destroyed}</Tag>);
+  if (badges.length === 0) return <Typography.Text type="secondary">No changes</Typography.Text>;
+  return <Space size={4}>{badges}</Space>;
 };
 
 const RunResultPage: React.FC = () => {
@@ -237,6 +255,13 @@ const RunResultPage: React.FC = () => {
       render: (_: React.ReactNode, record: ProjectAnalysisRun) => getProjectStatus(record).tag,
     },
     {
+      title: 'Changes',
+      key: 'changes',
+      width: 140,
+      sorter: (a: ProjectAnalysisRun, b: ProjectAnalysisRun) => changeTotal(a) - changeTotal(b),
+      render: (_: React.ReactNode, record: ProjectAnalysisRun) => renderChangeBadges(record),
+    },
+    {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
@@ -254,6 +279,7 @@ const RunResultPage: React.FC = () => {
   const selectedOutput =
     (outputTab === 'plan' ? selectedProject?.plan_output : selectedProject?.init_output) || 'No output available';
   const outputLines = selectedOutput.split('\n');
+  const summaryBadges = selectedProject ? renderChangeBadges(selectedProject) : null;
 
   return (
     <PageContainer>
@@ -517,6 +543,9 @@ const RunResultPage: React.FC = () => {
         >
           {selectedProject && (
             <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
+              {summaryBadges && (
+                <div style={{marginBottom: 12}}>{summaryBadges}</div>
+              )}
               {hasPlan && hasInit && (
                 <Segmented
                   value={outputTab}
