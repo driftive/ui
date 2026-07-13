@@ -88,6 +88,7 @@ const RunResultPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = React.useState<ProjectAnalysisRun | null>(null);
   const [copied, setCopied] = React.useState(false);
   const [wrap, setWrap] = React.useState(false);
+  const [outputTab, setOutputTab] = React.useState<'plan' | 'init'>('plan');
 
   const axios = useAxios();
   const {provider, org: orgName, repo: repoName, run: runUuid} = useParams();
@@ -177,13 +178,14 @@ const RunResultPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedProject.dir.replace(/\//g, '-')}-plan.txt`;
+    a.download = `${selectedProject.dir.replace(/\//g, '-')}-${outputTab}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const openProjectDrawer = (project: ProjectAnalysisRun) => {
     setSelectedProject(project);
+    setOutputTab(project.plan_output ? 'plan' : 'init');
     setDrawerOpen(true);
   };
 
@@ -247,7 +249,10 @@ const RunResultPage: React.FC = () => {
   ];
 
   const shortUuid = runUuid?.slice(0, 8) ?? '';
-  const selectedOutput = selectedProject?.plan_output || selectedProject?.init_output || 'No output available';
+  const hasPlan = !!selectedProject?.plan_output;
+  const hasInit = !!selectedProject?.init_output;
+  const selectedOutput =
+    (outputTab === 'plan' ? selectedProject?.plan_output : selectedProject?.init_output) || 'No output available';
   const outputLines = selectedOutput.split('\n');
 
   return (
@@ -511,20 +516,30 @@ const RunResultPage: React.FC = () => {
           }
         >
           {selectedProject && (
-            <div style={{height: '100%', overflow: 'auto'}}>
-              <SyntaxHighlighter
-                language="hcl"
-                style={dracula}
-                wrapLines
-                wrapLongLines={wrap}
-                lineProps={(n) => {
-                  const style = diffLineStyle(outputLines[n - 1] ?? '');
-                  return style ? {style} : {};
-                }}
-                customStyle={{margin: 0, borderRadius: '8px', minHeight: '100%'}}
-              >
-                {selectedOutput}
-              </SyntaxHighlighter>
+            <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
+              {hasPlan && hasInit && (
+                <Segmented
+                  value={outputTab}
+                  onChange={(value) => setOutputTab(value as 'plan' | 'init')}
+                  options={[{label: 'Plan', value: 'plan'}, {label: 'Init', value: 'init'}]}
+                  style={{marginBottom: 12, alignSelf: 'flex-start'}}
+                />
+              )}
+              <div style={{flex: 1, overflow: 'auto'}}>
+                <SyntaxHighlighter
+                  language="hcl"
+                  style={dracula}
+                  wrapLines
+                  wrapLongLines={wrap}
+                  lineProps={(n) => {
+                    const style = diffLineStyle(outputLines[n - 1] ?? '');
+                    return style ? {style} : {};
+                  }}
+                  customStyle={{margin: 0, borderRadius: '8px', minHeight: '100%'}}
+                >
+                  {selectedOutput}
+                </SyntaxHighlighter>
+              </div>
             </div>
           )}
         </Drawer>
