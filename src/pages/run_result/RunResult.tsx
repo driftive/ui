@@ -74,7 +74,7 @@ const RunResultPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = React.useState<ProjectAnalysisRun | null>(null);
 
   const axios = useAxios();
-  const {org: orgName, repo: repoName, run: runUuid} = useParams();
+  const {provider, org: orgName, repo: repoName, run: runUuid} = useParams();
 
   const runQuery = useQuery({
     queryKey: ["getRun", runUuid],
@@ -222,8 +222,8 @@ const RunResultPage: React.FC = () => {
         {/* Breadcrumb */}
         <Breadcrumb
           items={[
-            {title: <Link to={`/gh/${orgName}`}>{orgName}</Link>},
-            {title: <Link to={`/gh/${orgName}/${repoName}`}>{repoName}</Link>},
+            {title: <Link to={`/${provider}/${orgName}`}>{orgName}</Link>},
+            {title: <Link to={`/${provider}/${orgName}/${repoName}`}>{repoName}</Link>},
             {title: `Run ${shortUuid}...`},
           ]}
           style={{marginBottom: 16}}
