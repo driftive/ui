@@ -22,7 +22,7 @@ import {
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
 import {dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {useQuery} from "@tanstack/react-query";
-import {Link, useParams} from "react-router";
+import {Link, useParams, useSearchParams} from "react-router";
 import useAxios from "../../context/auth/axios.ts";
 import {isOk} from "../../utils/axios.ts";
 import {PageContainer} from "../../components/PageWrapper/PageWrapper.tsx";
@@ -34,9 +34,11 @@ import {
   DownloadOutlined,
   ExclamationCircleOutlined,
   FilterOutlined,
+  LeftOutlined,
   PauseCircleOutlined,
   ProjectOutlined,
   ReloadOutlined,
+  RightOutlined,
   SearchOutlined,
   WarningOutlined
 } from "@ant-design/icons";
@@ -100,16 +102,16 @@ const renderChangeBadges = (p: ProjectAnalysisRun): React.ReactNode => {
 };
 
 const RunResultPage: React.FC = () => {
+  const axios = useAxios();
+  const {provider, org: orgName, repo: repoName, run: runUuid} = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [searchText, setSearchText] = React.useState('');
   const [userSetFilter, setUserSetFilter] = React.useState<StatusFilter | null>(null);
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [selectedProject, setSelectedProject] = React.useState<ProjectAnalysisRun | null>(null);
+  const [selectedDir, setSelectedDir] = React.useState<string | null>(() => searchParams.get('project'));
   const [copied, setCopied] = React.useState(false);
   const [wrap, setWrap] = React.useState(false);
   const [outputTab, setOutputTab] = React.useState<'plan' | 'init'>('plan');
-
-  const axios = useAxios();
-  const {provider, org: orgName, repo: repoName, run: runUuid} = useParams();
 
   const runQuery = useQuery({
     queryKey: ["getRun", runUuid],
@@ -124,6 +126,12 @@ const RunResultPage: React.FC = () => {
   });
 
   const run = runQuery.data;
+
+  const selectedProject = React.useMemo(
+    () => run?.projects.find((p) => p.dir === selectedDir) ?? null,
+    [run, selectedDir]
+  );
+  const drawerOpen = !!selectedProject;
 
   // Default filter priority: drifted > errored > skipped > all. The user's explicit
   // pick (userSetFilter) always wins so the auto-pick can't clobber it on refetch.
@@ -196,21 +204,57 @@ const RunResultPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedProject.dir.replace(/\//g, '-')}-${outputTab}.txt`;
+    a.download = `${selectedProject.dir.replace(/\//g, '-')}-${activeTab}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const setProjectParam = React.useCallback((dir: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (dir) next.set('project', dir);
+      else next.delete('project');
+      return next;
+    }, {replace: true});
+  }, [setSearchParams]);
+
   const openProjectDrawer = (project: ProjectAnalysisRun) => {
-    setSelectedProject(project);
+    setSelectedDir(project.dir);
     setOutputTab(project.plan_output ? 'plan' : 'init');
-    setDrawerOpen(true);
+    setProjectParam(project.dir);
   };
 
   const closeDrawer = () => {
-    setDrawerOpen(false);
-    setSelectedProject(null);
+    setSelectedDir(null);
+    setProjectParam(null);
   };
+
+  const navIndex = filteredProjects.findIndex((p) => p.dir === selectedProject?.dir);
+
+  const navigateTo = React.useCallback((index: number) => {
+    const project = filteredProjects[index];
+    if (!project) return;
+    setSelectedDir(project.dir);
+    setOutputTab(project.plan_output ? 'plan' : 'init');
+    setProjectParam(project.dir);
+  }, [filteredProjects, setProjectParam]);
+
+  React.useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft' && navIndex > 0) {
+        e.preventDefault();
+        navigateTo(navIndex - 1);
+      } else if (e.key === 'ArrowRight' && navIndex !== -1 && navIndex < filteredProjects.length - 1) {
+        e.preventDefault();
+        navigateTo(navIndex + 1);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawerOpen, navIndex, filteredProjects.length, navigateTo]);
 
   const getProjectStatus = (project: ProjectAnalysisRun) => {
     if (!project.succeeded) {
@@ -276,8 +320,9 @@ const RunResultPage: React.FC = () => {
   const shortUuid = runUuid?.slice(0, 8) ?? '';
   const hasPlan = !!selectedProject?.plan_output;
   const hasInit = !!selectedProject?.init_output;
+  const activeTab = hasPlan && hasInit ? outputTab : (hasPlan ? 'plan' : 'init');
   const selectedOutput =
-    (outputTab === 'plan' ? selectedProject?.plan_output : selectedProject?.init_output) || 'No output available';
+    (activeTab === 'plan' ? selectedProject?.plan_output : selectedProject?.init_output) || 'No output available';
   const outputLines = selectedOutput.split('\n');
   const summaryBadges = selectedProject ? renderChangeBadges(selectedProject) : null;
 
@@ -507,6 +552,27 @@ const RunResultPage: React.FC = () => {
                 <Typography.Text code copyable={{text: selectedProject.dir}} style={{fontSize: '12px', wordBreak: 'break-all'}}>
                   {selectedProject.dir}
                 </Typography.Text>
+                {navIndex !== -1 && (
+                  <Space size="small">
+                    <Button
+                      size="small"
+                      icon={<LeftOutlined />}
+                      disabled={navIndex <= 0}
+                      onClick={() => navigateTo(navIndex - 1)}
+                      aria-label="Previous project"
+                    />
+                    <Typography.Text type="secondary" style={{fontSize: 12}}>
+                      {navIndex + 1} of {filteredProjects.length}
+                    </Typography.Text>
+                    <Button
+                      size="small"
+                      icon={<RightOutlined />}
+                      disabled={navIndex >= filteredProjects.length - 1}
+                      onClick={() => navigateTo(navIndex + 1)}
+                      aria-label="Next project"
+                    />
+                  </Space>
+                )}
               </Space>
             ) : 'Project Output'
           }
